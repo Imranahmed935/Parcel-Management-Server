@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const port = process.env.PORT || 5000;
 const app = express();
@@ -44,23 +44,20 @@ async function run() {
       res.send(result);
     });
 
-
-    app.patch('/updateUser/:email', async(req,res)=>{
+    app.patch("/updateUser/:email", async (req, res) => {
       const data = req.body;
       const email = req.params.email;
-      const filter = {email:email}
+      const filter = { email: email };
       const update = {
-        $set:{
-          name:data.name,
-          email:data.email
+        $set: {
+          name: data.name,
+          email: data.email,
+        },
+      };
+      const result = await userCollection.updateOne(filter, update);
+      res.send(result);
+    });
 
-        }
-      }
-      const result = await userCollection.updateOne(filter, update)
-      res.send(result)
-    })
-
-    
     app.put("/users/:email", async (req, res) => {
       try {
         const email = req.params.email;
@@ -102,6 +99,34 @@ async function run() {
       const query = { email: email };
       const result = await parcelCollection.find(query).toArray();
       res.send(result);
+    });
+
+    app.get("/updateParcel/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await parcelCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.patch("/updateParcel/:id", async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateParcel = {
+        $set: {
+          number:data.number,
+          type:data.type,
+          weight:data.weight,
+          receiverName:data.receiverName,
+          receiverPhone:data.receiverPhone,
+          address:data.address,
+          date:data.date,
+          latitude:data.latitude,
+          longitude:data.longitude
+        },
+      };
+      const result = await parcelCollection.updateOne(filter, updateParcel)
+      res.send(result)
     });
 
     app.post("/bookParcel", async (req, res) => {
