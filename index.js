@@ -26,9 +26,28 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const user = req.body;
+      const query = {email:user.email}
+      const existEmail = await userCollection.findOne(query);
+      if(existEmail){
+        return res.send({ message: "user already exist", insertedId: null });
+      }
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+    app.get('/users/:role', async (req, res) => {
+      const role = req.params.role;
+      const query = {role:role}
+     const data = await userCollection.find(query).toArray()
+     res.send(data)
+    });
+    
+
+    app.get('/allParcels', async(req,res)=>{
+      const parcels = await parcelCollection.find().toArray();
+      res.send(parcels)
+    })
+
 
     app.get("/myProfile/:email", async (req, res) => {
       const email = req.params.email;
