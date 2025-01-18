@@ -26,28 +26,33 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const user = req.body;
-      const query = {email:user.email}
+      const query = { email: user.email };
       const existEmail = await userCollection.findOne(query);
-      if(existEmail){
+      if (existEmail) {
         return res.send({ message: "user already exist", insertedId: null });
       }
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
 
-    app.get('/users/:role', async (req, res) => {
+    app.get("/users/:role", async (req, res) => {
       const role = req.params.role;
-      const query = {role:role}
-     const data = await userCollection.find(query).toArray()
-     res.send(data)
+      const query = { role: role };
+      const data = await userCollection.find(query).toArray();
+      res.send(data);
+    }); 
+
+    app.get("/users/:role", async (req, res) => {
+      const role = req.params.role;
+      const query = { role: role };
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
     });
-    
 
-    app.get('/allParcels', async(req,res)=>{
+    app.get("/allParcels", async (req, res) => {
       const parcels = await parcelCollection.find().toArray();
-      res.send(parcels)
-    })
-
+      res.send(parcels);
+    });
 
     app.get("/myProfile/:email", async (req, res) => {
       const email = req.params.email;
@@ -133,19 +138,19 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const updateParcel = {
         $set: {
-          number:data.number,
-          type:data.type,
-          weight:data.weight,
-          receiverName:data.receiverName,
-          receiverPhone:data.receiverPhone,
-          address:data.address,
-          date:data.date,
-          latitude:data.latitude,
-          longitude:data.longitude
+          number: data.number,
+          type: data.type,
+          weight: data.weight,
+          receiverName: data.receiverName,
+          receiverPhone: data.receiverPhone,
+          address: data.address,
+          date: data.date,
+          latitude: data.latitude,
+          longitude: data.longitude,
         },
       };
-      const result = await parcelCollection.updateOne(filter, updateParcel)
-      res.send(result)
+      const result = await parcelCollection.updateOne(filter, updateParcel);
+      res.send(result);
     });
 
     app.post("/bookParcel", async (req, res) => {
