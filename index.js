@@ -18,6 +18,7 @@ app.use(express.json());
 
 const userCollection = client.db("parcel").collection("users");
 const parcelCollection = client.db("parcel").collection("bookParcel");
+const assignDeliveryMan = client.db('parcel').collection('delivery')
 
 async function run() {
   try {
@@ -41,6 +42,51 @@ async function run() {
       const data = await userCollection.find(query).toArray();
       res.send(data);
     }); 
+
+    app.patch('/users/:id', async (req,res)=>{
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set:{
+          role:'deliveryMan'
+        }
+      }
+      const result = await userCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
+
+    app.patch('/users/admin/:id', async (req, res)=>{
+      const id  = req.params.id;
+      const filter = {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set:{
+          role:'admin'
+        }
+      }
+      const result = await userCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
+    app.post('/parcels/:id', async (req, res)=>{
+      const data = req.body;
+      const result = await assignDeliveryMan.insertOne(data)
+      res.send(result)
+    })
+
+    app.patch('/users/status/:id', async (req, res)=>{
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)}
+      const update = {
+        $set:{
+          status:'On the way'
+        }
+      }
+      const result = await parcelCollection.updateOne(filter, update)
+      res.send(result)
+
+    })
+
 
     app.get("/users/:role", async (req, res) => {
       const role = req.params.role;
