@@ -35,7 +35,6 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-
 const verifyAdmin = async (req, res, next) => {
   const email = req.decoded.email;
   const query = { email: email };
@@ -46,7 +45,6 @@ const verifyAdmin = async (req, res, next) => {
   }
   next();
 };
-
 
 async function run() {
   try {
@@ -92,11 +90,18 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users/:role", async (req, res) => {
+    app.get("/users/:role", verifyToken, verifyAdmin, async (req, res) => {
       const role = req.params.role;
       const query = { role: role };
       const result = await userCollection.find(query).toArray();
       res.send(result);
+    });
+
+    app.get("/userDashboard/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const data = await userCollection.findOne(query);
+      res.send(data);
     });
 
     app.patch("/users/:id", async (req, res) => {
@@ -111,23 +116,36 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(filter, updateDoc);
-      res.send(result);
-    });
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      }
+    );
 
-    app.post("/parcels/:id", async (req, res) => {
+    app.post("/parcels/:id", verifyToken, verifyAdmin, async (req, res) => {
       const data = req.body;
       const result = await assignDeliveryMan.insertOne(data);
       res.send(result);
     });
+
+    app.get("/deliverList/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { deliveryManEmail: email };
+      const result = await assignDeliveryMan.find(query).toArray();
+      res.send(result);
+    });
+
 
     app.patch("/users/status/:id", async (req, res) => {
       const id = req.params.id;
@@ -141,7 +159,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/allParcels", async (req, res) => {
+    app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
       const parcels = await parcelCollection.find().toArray();
       res.send(parcels);
     });
