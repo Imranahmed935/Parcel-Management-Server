@@ -146,6 +146,41 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/cancelStatus/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateCancel = {
+        $set: {
+          "selected.status": "Cancelled",
+        },
+      };
+      const assignResult = await assignDeliveryMan.updateOne(
+        filter,
+        updateCancel
+      );
+
+      const assignedParcel = await assignDeliveryMan.findOne(filter);
+      const parcelId = assignedParcel?.selected?._id;
+
+      let parcelResult = null;
+      if (parcelId) {
+        const bookedParcelFilter = { _id: new ObjectId(parcelId) };
+        const bookedParcelUpdate = {
+          $set: {
+            status: "Cancelled",
+          },
+        };
+        parcelResult = await parcelCollection.updateOne(
+          bookedParcelFilter,
+          bookedParcelUpdate
+        );
+        res.send({
+          message: "Status updated successfully",
+          assignUpdated: assignResult,
+          bookedParcelUpdated: parcelResult,
+        });
+      }
+    });
 
     app.patch("/users/status/:id", async (req, res) => {
       const id = req.params.id;
