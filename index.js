@@ -309,8 +309,12 @@ async function run() {
     });
 
     app.get("/bookParcel/:email", async (req, res) => {
+      const filter = req.query.filter;
       const email = req.params.email;
       const query = { email: email };
+      if(filter){
+        query.status = filter;
+      }
       const result = await parcelCollection.find(query).toArray();
       res.send(result);
     });
