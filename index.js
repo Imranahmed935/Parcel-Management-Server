@@ -20,6 +20,7 @@ app.use(express.json());
 const userCollection = client.db("parcel").collection("users");
 const parcelCollection = client.db("parcel").collection("bookParcel");
 const assignDeliveryMan = client.db("parcel").collection("delivery");
+const deliveredParcel = client.db("parcel").collection("allParcel");
 
 const verifyToken = (req, res, next) => {
   if (!req.headers.authorization) {
@@ -180,6 +181,43 @@ async function run() {
           bookedParcelUpdated: parcelResult,
         });
       }
+    });
+
+    app.patch("/deliverStatus/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateStatus = {
+        $set: {
+          "selected.status": "delivered",
+        },
+      };
+      const result = await assignDeliveryMan.updateOne(filter, updateStatus);
+      const filterId = await assignDeliveryMan.findOne(filter);
+      const filteredData = filterId?.selected?._id;
+      let delivered = null;
+      if (filteredData) {
+        const bookedParcel = { _id: new ObjectId(filteredData) };
+        const updateDeliver = {
+          $set: {
+            status: "delivered",
+          },
+        };
+        delivered = await parcelCollection.updateOne(
+          bookedParcel,
+          updateDeliver
+        );
+        res.send({
+          message: "Status updated successfully",
+          result,
+          delivered,
+        });
+      }
+    });
+
+    app.post("/deliveredCount", async (req, res) => {
+      const data = req.body;
+      const result = await deliveredParcel.insertOne(data);
+      res.send(result);
     });
 
     app.patch("/users/status/:id", async (req, res) => {
