@@ -239,9 +239,25 @@ async function run() {
     });
 
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
-      const parcels = await parcelCollection.find().toArray();
-      res.send(parcels);
+      
+      try {
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const query = {}
+        if (startDate && endDate) {
+          query.requestedDeliveryDate = {
+            $gte: new Date(startDate), 
+            $lte: new Date(endDate),   
+          };
+        }
+        const parcels = await parcelCollection.find(query).toArray();
+        res.send(parcels);
+      } catch (error) {
+        console.error("Error fetching parcels:", error);
+        res.status(500).send({ message: "Failed to fetch parcels" });
+      }
     });
+    
 
     app.get("/myProfile/:email", async (req, res) => {
       const email = req.params.email;
@@ -312,7 +328,7 @@ async function run() {
       const filter = req.query.filter;
       const email = req.params.email;
       const query = { email: email };
-      if(filter){
+      if (filter) {
         query.status = filter;
       }
       const result = await parcelCollection.find(query).toArray();
