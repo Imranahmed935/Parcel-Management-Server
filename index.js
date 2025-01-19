@@ -93,9 +93,17 @@ async function run() {
     });
 
     app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
-      const result = await userCollection.find().toArray();
+      const page = parseInt(req.query.currentPage);
+      const limit = parseInt(req.query.itemsParPage);
+
+      const result = await userCollection.find().skip(page*limit).limit(limit).toArray();
       res.send(result);
     });
+
+    app.get('/allUsers', async(req, res)=>{
+      const count = await userCollection.estimatedDocumentCount()
+      res.send({count})
+    })
 
     app.get("/users/:role", verifyToken, verifyAdmin, async (req, res) => {
       const role = req.params.role;
@@ -220,6 +228,7 @@ async function run() {
       }
     });
 
+
     app.post("/deliveredCount", async (req, res) => {
       const data = req.body;
       const result = await deliveredParcel.insertOne(data);
@@ -238,8 +247,9 @@ async function run() {
       res.send(result);
     });
 
+
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
-      
+
       try {
         const startDate = req.query.startDate;
         const endDate = req.query.endDate;
