@@ -3,7 +3,9 @@ const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const { default: Stripe } = require("stripe");
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.haqk7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 const client = new MongoClient(uri, {
@@ -63,6 +65,22 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/allDelivered", async (req, res) => {
+      const data = await deliveredParcel.find().toArray();
+      res.send(data);
+    });
+
+    app.get("/stats", async (req, res) => {
+      const totalUsers = await userCollection.estimatedDocumentCount();
+      const totalParcel = await parcelCollection.estimatedDocumentCount();
+      const totalDelivered = await deliveredParcel.estimatedDocumentCount();
+      res.send({
+        totalDelivered,
+        totalParcel,
+        totalUsers,
+      });
+    });
+
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.SECRET_TOKEN, {
@@ -92,20 +110,30 @@ async function run() {
       res.send({ admin });
     });
 
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users/:email", verifyToken, verifyAdmin, async (req, res) => {
       const page = parseInt(req.query.currentPage);
       const limit = parseInt(req.query.itemsParPage);
-
-      const result = await userCollection.find().skip(page*limit).limit(limit).toArray();
+      const result = await userCollection
+        .find()
+        .skip(page * limit)
+        .limit(limit)
+        .toArray();
       res.send(result);
     });
 
-    app.get('/allUsers', async(req, res)=>{
-      const count = await userCollection.estimatedDocumentCount()
-      res.send({count})
-    })
+    app.get("/allUsers", async (req, res) => {
+      const count = await userCollection.estimatedDocumentCount();
+      res.send({ count });
+    });
 
     app.get("/users/:role", verifyToken, verifyAdmin, async (req, res) => {
+      const role = req.params.role;
+      const query = { role: role };
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/delivery/:role", verifyToken, verifyAdmin, async (req, res) => {
       const role = req.params.role;
       const query = { role: role };
       const result = await userCollection.find(query).toArray();
@@ -158,6 +186,18 @@ async function run() {
       const email = req.params.email;
       const query = { deliveryManEmail: email };
       const result = await assignDeliveryMan.find(query).toArray();
+      res.send(result);
+    });
+
+    app.patch("/users/count/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const update = {
+        $inc: {
+          count: 1,
+        },
+      };
+      const result = await userCollection.updateOne(filter, update);
       res.send(result);
     });
 
@@ -228,12 +268,20 @@ async function run() {
       }
     });
 
-
     app.post("/deliveredCount", async (req, res) => {
       const data = req.body;
       const result = await deliveredParcel.insertOne(data);
       res.send(result);
     });
+
+
+    app.get('/user/topDeliveryMan/:role', async (req, res)=>{
+      const role = req.params.role;
+      const query = {role: role};
+      
+      const result = await userCollection.find(query).sort({count:-1}).limit(3).toArray();
+      res.send(result)
+    })
 
     app.patch("/users/status/:id", async (req, res) => {
       const id = req.params.id;
@@ -247,17 +295,15 @@ async function run() {
       res.send(result);
     });
 
-
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
-
       try {
         const startDate = req.query.startDate;
         const endDate = req.query.endDate;
-        const query = {}
+        const query = {};
         if (startDate && endDate) {
           query.requestedDeliveryDate = {
-            $gte: new Date(startDate), 
-            $lte: new Date(endDate),   
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
           };
         }
         const parcels = await parcelCollection.find(query).toArray();
@@ -267,7 +313,6 @@ async function run() {
         res.status(500).send({ message: "Failed to fetch parcels" });
       }
     });
-    
 
     app.get("/myProfile/:email", async (req, res) => {
       const email = req.params.email;
@@ -377,6 +422,19 @@ async function run() {
       const data = req.body;
       const result = await parcelCollection.insertOne(data);
       res.send(result);
+    });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
     // Send a ping to confirm a successful connection
