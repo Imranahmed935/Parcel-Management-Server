@@ -19,10 +19,13 @@ const client = new MongoClient(uri, {
 app.use(cors());
 app.use(express.json());
 
+
 const userCollection = client.db("parcel").collection("users");
 const parcelCollection = client.db("parcel").collection("bookParcel");
 const assignDeliveryMan = client.db("parcel").collection("delivery");
 const deliveredParcel = client.db("parcel").collection("allParcel");
+const reviews = client.db("parcel").collection("allReviews");
+
 
 const verifyToken = (req, res, next) => {
   if (!req.headers.authorization) {
@@ -113,8 +116,10 @@ async function run() {
     app.get("/users/:email", verifyToken, verifyAdmin, async (req, res) => {
       const page = parseInt(req.query.currentPage);
       const limit = parseInt(req.query.itemsParPage);
+      const query = { role: { $ne: "admin" } };
+
       const result = await userCollection
-        .find()
+        .find(query)
         .skip(page * limit)
         .limit(limit)
         .toArray();
@@ -176,7 +181,7 @@ async function run() {
       }
     );
 
-    app.post("/parcels/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.post("/parcels", verifyToken, verifyAdmin, async (req, res) => {
       const data = req.body;
       const result = await assignDeliveryMan.insertOne(data);
       res.send(result);
@@ -188,6 +193,50 @@ async function run() {
       const result = await assignDeliveryMan.find(query).toArray();
       res.send(result);
     });
+
+
+    app.patch('/deliveryManId/status/:id', async (req, res)=>{
+      const {deliveryman, deliveryDate} = req.body;
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+
+      const update={
+        $set:{
+          deliveryManId: deliveryman,
+          deliveryDate: deliveryDate,
+        }
+      }
+      const result = await parcelCollection.updateOne(query, update)
+  
+      
+      res.send(result)
+    })
+
+    app.post('/reviews', async(req, res)=>{
+      const data = req.body;
+      const result = await reviews.insertOne(data)
+      res.send(result)
+    })
+
+    app.put('/review/man/:id', async (req, res) => {
+      const id = req.params.id; 
+      const userReview = req.body; 
+      const filter = { _id: new ObjectId(id) }; 
+      const update = {
+        $set: userReview, 
+      };
+    
+      try {
+        const result = await userCollection.updateOne(filter, update); 
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).send({ error: "Failed to update user" });
+      }
+    });
+    
+
+
 
     app.patch("/users/count/:email", async (req, res) => {
       const email = req.params.email;
@@ -274,14 +323,17 @@ async function run() {
       res.send(result);
     });
 
-
-    app.get('/user/topDeliveryMan/:role', async (req, res)=>{
+    app.get("/user/topDeliveryMan/:role", async (req, res) => {
       const role = req.params.role;
-      const query = {role: role};
-      
-      const result = await userCollection.find(query).sort({count:-1}).limit(3).toArray();
-      res.send(result)
-    })
+      const query = { role: role };
+
+      const result = await userCollection
+        .find(query)
+        .sort({ count: -1 })
+        .limit(3)
+        .toArray();
+      res.send(result);
+    });
 
     app.patch("/users/status/:id", async (req, res) => {
       const id = req.params.id;
@@ -294,6 +346,36 @@ async function run() {
       const result = await parcelCollection.updateOne(filter, update);
       res.send(result);
     });
+
+    // app.put('/deliveryManId/:email', async (req, res) => {
+    //   try {
+    //     const { deliveryManId, deliveryDate } = req.body;
+    //     const email = req.params.email;
+    
+    //     if (!deliveryManId || !deliveryDate) {
+    //       return res.status(400).send({ message: "Invalid data provided" });
+    //     }
+    
+    //     const filter = { email };
+    //     const update = {
+    //       $set: { deliveryManId, deliveryDate },
+    //     };
+    
+    //     const result = await parcelCollection.updateOne(filter, update, {
+    //       upsert: true, 
+    //     });
+    
+    //     if (result.matchedCount === 0 && result.upsertedCount === 0) {
+    //       return res.status(404).send({ message: "Parcel not found" });
+    //     }
+    
+    //     res.send({ message: "Parcel updated successfully", result });
+    //   } catch (error) {
+    //     console.error("Error updating parcel:", error);
+    //     res.status(500).send({ message: "Internal server error" });
+    //   }
+    // });
+    
 
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
       try {
