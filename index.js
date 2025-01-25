@@ -19,13 +19,11 @@ const client = new MongoClient(uri, {
 app.use(cors());
 app.use(express.json());
 
-
 const userCollection = client.db("parcel").collection("users");
 const parcelCollection = client.db("parcel").collection("bookParcel");
 const assignDeliveryMan = client.db("parcel").collection("delivery");
 const deliveredParcel = client.db("parcel").collection("allParcel");
 const reviews = client.db("parcel").collection("allReviews");
-
 
 const verifyToken = (req, res, next) => {
   if (!req.headers.authorization) {
@@ -194,49 +192,44 @@ async function run() {
       res.send(result);
     });
 
-
-    app.patch('/deliveryManId/status/:id', async (req, res)=>{
-      const {deliveryman, deliveryDate} = req.body;
+    app.patch("/deliveryManId/status/:id", async (req, res) => {
+      const { deliveryman, deliveryDate } = req.body;
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
 
-      const update={
-        $set:{
+      const update = {
+        $set: {
           deliveryManId: deliveryman,
           deliveryDate: deliveryDate,
-        }
-      }
-      const result = await parcelCollection.updateOne(query, update)
-  
-      
-      res.send(result)
-    })
-
-    app.post('/reviews', async(req, res)=>{
-      const data = req.body;
-      const result = await reviews.insertOne(data)
-      res.send(result)
-    })
-
-    app.put('/review/man/:id', async (req, res) => {
-      const id = req.params.id; 
-      const userReview = req.body; 
-      const filter = { _id: new ObjectId(id) }; 
-      const update = {
-        $set: userReview, 
+        },
       };
-    
+      const result = await parcelCollection.updateOne(query, update);
+
+      res.send(result);
+    });
+
+    app.post("/reviews", async (req, res) => {
+      const data = req.body;
+      const result = await reviews.insertOne(data);
+      res.send(result);
+    });
+
+    app.put("/review/man/:id", async (req, res) => {
+      const id = req.params.id;
+      const userReview = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const update = {
+        $set: userReview,
+      };
+
       try {
-        const result = await userCollection.updateOne(filter, update); 
+        const result = await userCollection.updateOne(filter, update);
         res.send(result);
       } catch (error) {
         console.error("Error updating user:", error);
         res.status(500).send({ error: "Failed to update user" });
       }
     });
-    
-
-
 
     app.patch("/users/count/:email", async (req, res) => {
       const email = req.params.email;
@@ -329,7 +322,7 @@ async function run() {
 
       const result = await userCollection
         .find(query)
-        .sort({ count: -1 })
+        .sort({ count: -1, reviewed: -1 })
         .limit(3)
         .toArray();
       res.send(result);
@@ -347,36 +340,88 @@ async function run() {
       res.send(result);
     });
 
-    // app.put('/deliveryManId/:email', async (req, res) => {
-    //   try {
-    //     const { deliveryManId, deliveryDate } = req.body;
-    //     const email = req.params.email;
-    
-    //     if (!deliveryManId || !deliveryDate) {
-    //       return res.status(400).send({ message: "Invalid data provided" });
-    //     }
-    
-    //     const filter = { email };
-    //     const update = {
-    //       $set: { deliveryManId, deliveryDate },
-    //     };
-    
-    //     const result = await parcelCollection.updateOne(filter, update, {
-    //       upsert: true, 
-    //     });
-    
-    //     if (result.matchedCount === 0 && result.upsertedCount === 0) {
-    //       return res.status(404).send({ message: "Parcel not found" });
-    //     }
-    
-    //     res.send({ message: "Parcel updated successfully", result });
-    //   } catch (error) {
-    //     console.error("Error updating parcel:", error);
-    //     res.status(500).send({ message: "Internal server error" });
-    //   }
-    // });
-    
+    app.get("/adminStats", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const bookingsByDate = await parcelCollection
+          .aggregate([
+            {
+              $match: {
+                date: { $exists: true, $ne: null },
+              },
+            },
+            {
+              $project: {
+                bookingDate: { $toDate: "$date" },
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { format: "%Y-%m-%d", date: "$bookingDate" },
+                },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { _id: 1 } },
+          ])
+          .toArray();
 
+        const bookingVsDelivered = await parcelCollection
+          .aggregate([
+            {
+              $match: {
+                date: { $exists: true, $ne: null },
+              },
+            },
+            {
+              $project: {
+                bookingDate: { $toDate: "$date" },
+                status: 1,
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { format: "%Y-%m-%d", date: "$bookingDate" },
+                },
+                booked: { $sum: 1 },
+                delivered: {
+                  $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] },
+                },
+              },
+            },
+            { $sort: { _id: 1 } },
+          ])
+          .toArray();
+
+        const bookingsDate = bookingsByDate.map((book) => book._id);
+        const bookingsCount = bookingsByDate.map((book) => book.count);
+        const bookedCounts = bookingVsDelivered.map((item) => item.booked);
+        const deliveredCounts = bookingVsDelivered.map(
+          (item) => item.delivered
+        );
+
+        res.send({
+          bookingsByDate: {
+            dates: bookingsDate,
+            counts: bookingsCount,
+          },
+          bookingVsDelivered: {
+            dates: bookingsDate,
+            booked: bookedCounts,
+            delivered: deliveredCounts,
+          },
+        });
+      } catch (err) {
+        console.error("Error occurred on the server:", err);
+        res
+          .status(500)
+          .send({ message: "An error occurred while processing the data." });
+      }
+    });
+
+
+    
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const startDate = req.query.startDate;
@@ -394,6 +439,16 @@ async function run() {
         console.error("Error fetching parcels:", error);
         res.status(500).send({ message: "Failed to fetch parcels" });
       }
+    });
+
+    app.get("/totalBooked", async (req, res) => {
+      const data = await parcelCollection.find().toArray();
+      res.send(data);
+    });
+
+    app.get("/totalParcels", async (req, res) => {
+      const data = await deliveredParcel.find().toArray();
+      res.send(data);
     });
 
     app.get("/myProfile/:email", async (req, res) => {
