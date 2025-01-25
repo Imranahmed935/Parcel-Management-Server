@@ -340,6 +340,25 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/reviews/:deliveryManId', async (req, res) => {
+      const id = req.params.deliveryManId; 
+      try {
+          const reviewsData = await reviews.find({ id: id }).toArray(); 
+          res.send(reviewsData);
+      } catch (error) {
+          console.error('Error fetching reviews:', error);
+          res.status(500).send({ message: 'Internal server error' });
+      }
+  });
+
+  app.get('/singleDeliveryMan/:email', async (req, res)=>{
+    const email = req.params.email;
+    const query = {email:email}
+    const result = await userCollection.findOne(query)
+    res.send(result)
+  })
+  
+
     app.get("/adminStats", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const bookingsByDate = await parcelCollection
@@ -421,7 +440,7 @@ async function run() {
     });
 
 
-    
+
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const startDate = req.query.startDate;
