@@ -53,7 +53,7 @@ const verifyAdmin = async (req, res, next) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -150,7 +150,7 @@ async function run() {
       res.send(data);
     });
 
-    app.patch("/users/:id", async (req, res) => {
+    app.patch("/users/user/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -178,6 +178,19 @@ async function run() {
         res.send(result);
       }
     );
+
+    app.patch('/user/cancelBooked/:id', async (req, res)=>{
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)}
+      const update = {
+        $set:{
+          status:'Returned'
+        }
+      
+      }
+      const result = await parcelCollection.updateOne(filter, update)
+      res.send(result)
+    })
 
     app.post("/parcels", verifyToken, verifyAdmin, async (req, res) => {
       const data = req.body;
