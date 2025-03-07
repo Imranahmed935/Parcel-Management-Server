@@ -16,6 +16,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+
+
 app.use(cors());
 app.use(express.json());
 
@@ -111,6 +113,11 @@ async function run() {
       res.send({ admin });
     });
 
+    app.get("/users/reviews", async (req, res) => {
+      const data = await reviews.find().toArray();
+      res.send(data);
+    });
+
     app.get("/users/:email", verifyToken, verifyAdmin, async (req, res) => {
       const page = parseInt(req.query.currentPage);
       const limit = parseInt(req.query.itemsParPage);
@@ -129,12 +136,18 @@ async function run() {
       res.send({ count });
     });
 
-    app.get("/users/:role", verifyToken, verifyAdmin, async (req, res) => {
-      const role = req.params.role;
-      const query = { role: role };
-      const result = await userCollection.find(query).toArray();
-      res.send(result);
-    });
+    // alldeliveryman
+    app.get(
+      "/users/allDeliveryMan/:role",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const role = req.params.role;
+        const query = { role: role };
+        const result = await userCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
 
     app.get("/delivery/:role", verifyToken, verifyAdmin, async (req, res) => {
       const role = req.params.role;
@@ -179,18 +192,17 @@ async function run() {
       }
     );
 
-    app.patch('/user/cancelBooked/:id', async (req, res)=>{
+    app.patch("/user/cancelBooked/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) };
       const update = {
-        $set:{
-          status:'Returned'
-        }
-      
-      }
-      const result = await parcelCollection.updateOne(filter, update)
-      res.send(result)
-    })
+        $set: {
+          status: "Returned",
+        },
+      };
+      const result = await parcelCollection.updateOne(filter, update);
+      res.send(result);
+    });
 
     app.post("/parcels", verifyToken, verifyAdmin, async (req, res) => {
       const data = req.body;
@@ -328,7 +340,7 @@ async function run() {
       const result = await deliveredParcel.insertOne(data);
       res.send(result);
     });
-
+    // topDeliveryMan
     app.get("/user/topDeliveryMan/:role", async (req, res) => {
       const role = req.params.role;
       const query = { role: role };
@@ -353,24 +365,23 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/reviews/:deliveryManId', async (req, res) => {
-      const id = req.params.deliveryManId; 
+    app.get("/reviews/:deliveryManId", async (req, res) => {
+      const id = req.params.deliveryManId;
       try {
-          const reviewsData = await reviews.find({ id: id }).toArray(); 
-          res.send(reviewsData);
+        const reviewsData = await reviews.find({ id: id }).toArray();
+        res.send(reviewsData);
       } catch (error) {
-          console.error('Error fetching reviews:', error);
-          res.status(500).send({ message: 'Internal server error' });
+        console.error("Error fetching reviews:", error);
+        res.status(500).send({ message: "Internal server error" });
       }
-  });
+    });
 
-  app.get('/singleDeliveryMan/:email', async (req, res)=>{
-    const email = req.params.email;
-    const query = {email:email}
-    const result = await userCollection.findOne(query)
-    res.send(result)
-  })
-  
+    app.get("/singleDeliveryMan/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    });
 
     app.get("/adminStats", verifyToken, verifyAdmin, async (req, res) => {
       try {
@@ -451,8 +462,6 @@ async function run() {
           .send({ message: "An error occurred while processing the data." });
       }
     });
-
-
 
     app.get("/allParcels", verifyToken, verifyAdmin, async (req, res) => {
       try {
