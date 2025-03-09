@@ -92,7 +92,8 @@ async function run() {
       res.send({ token });
     });
 
-    app.get("/users/role/:email", async (req, res) => {
+    // role User
+    app.get("/users/roleData/:email", async (req, res) => {
       const email = req.params.email;
       const result = await userCollection.findOne({ email });
       res.send({ role: result?.role });
@@ -142,8 +143,9 @@ async function run() {
       verifyToken,
       verifyAdmin,
       async (req, res) => {
-        const role = req.params.role;
-        const query = { role: role };
+        const role1 = req.params.role;
+        const query = { role: role1 };
+        console.log(query)
         const result = await userCollection.find(query).toArray();
         res.send(result);
       }
@@ -341,7 +343,7 @@ async function run() {
       res.send(result);
     });
     // topDeliveryMan
-    app.get("/user/topDeliveryMan/:role", async (req, res) => {
+    app.get("/users/topDeliveryMan/:role", async (req, res) => {
       const role = req.params.role;
       const query = { role: role };
 
